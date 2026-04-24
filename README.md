@@ -187,7 +187,7 @@ FMA was chosen over GTZAN for its scale, label quality, and real-world genre div
 
 ### Training Curves
 
-![Training and Validation Loss](training_and_val_loss_graph.png)
+![Training and Validation Loss](loss_graph.png)
 
 ---
 
