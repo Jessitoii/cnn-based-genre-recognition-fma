@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+librosa
+torch
+torchvision
+numpy
+pyyaml
+pydantic
+pydantic-settings
+fastapi-cors
