@@ -1,3 +1,9 @@
+"""
+Data handling module for the FMA dataset.
+Provides utilities for audio preprocessing (Mel-spectrogram conversion)
+and PyTorch Dataset/DataLoader classes for training and evaluation.
+"""
+
 import os
 import numpy as np
 import pandas as pd
@@ -14,30 +20,62 @@ logger = logging.getLogger(__name__)
 
 
 def load_config(config_path="config.yaml"):
+    """
+    Load project configuration from a YAML file.
+
+    Args:
+        config_path (str): Path to the YAML configuration file. Defaults to "config.yaml".
+
+    Returns:
+        dict: Parsed configuration parameters.
+    """
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
 
 
 def get_track_path(track_id: int, data_root: str) -> Path:
-    """FMA uses a two-level directory structure: 000/000002.mp3"""
+    """
+    Get the file path for a track in the FMA dataset structure.
+    FMA uses a two-level directory structure: 000/000002.mp3.
+
+    Args:
+        track_id (int): Digit ID of the track.
+        data_root (str): Root directory of the FMA dataset.
+
+    Returns:
+        Path: Full path to the MP3 file.
+    """
+    # Format track_id as 6-digit string and use first 3 digits as sub-folder
     tid = f"{track_id:06d}"
     return Path(data_root) / tid[:3] / f"{tid}.mp3"
 
 
 def load_mel_spectrogram(path: str, cfg: dict) -> np.ndarray:
-    """Load audio and convert to mel-spectrogram. Returns (n_mels, time) array."""
+    """
+    Load an audio file and convert it to a Mel-spectrogram.
+
+    Args:
+        path (str): Path to the audio file.
+        cfg (dict): Configuration dictionary containing audio parameters.
+
+    Returns:
+        np.ndarray: Mel-spectrogram in dB scale as a (n_mels, time) array.
+                   Returns None if loading fails.
+    """
     try:
+        # Load audio with fixed sample rate and duration
         y, sr = librosa.load(
             path,
             sr=cfg["data"]["sample_rate"],
             duration=cfg["data"]["duration"],
             mono=True,
         )
-        # Pad if shorter than expected duration
+        # Pad short clips to ensure consistent temporal dimensions
         expected_len = cfg["data"]["sample_rate"] * cfg["data"]["duration"]
         if len(y) < expected_len:
             y = np.pad(y, (0, expected_len - len(y)))
 
+        # Compute Mel-spectrogram
         mel = librosa.feature.melspectrogram(
             y=y,
             sr=sr,
@@ -45,6 +83,7 @@ def load_mel_spectrogram(path: str, cfg: dict) -> np.ndarray:
             n_fft=cfg["data"]["n_fft"],
             hop_length=cfg["data"]["hop_length"],
         )
+        # Convert to log-scale (dB) for better neural network convergence
         mel_db = librosa.power_to_db(mel, ref=np.max)
         return mel_db.astype(np.float32)
     except Exception as e:
@@ -54,8 +93,14 @@ def load_mel_spectrogram(path: str, cfg: dict) -> np.ndarray:
 
 def preprocess_and_save(cfg: dict, out_dir: str):
     """
-    One-time preprocessing: converts all MP3s to .npy mel-spectrograms.
-    Run this once on Colab before training.
+    Perform one-time preprocessing by converting MP3 files to .npy Mel-spectrograms.
+
+    This function filters the dataset to the 'small' subset and saves computed
+    spectrograms to facilitate faster data loading during training.
+
+    Args:
+        cfg (dict): Configuration dictionary.
+        out_dir (str): Directory where .npy files will be saved.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -63,7 +108,7 @@ def preprocess_and_save(cfg: dict, out_dir: str):
     tracks_csv = cfg["paths"]["metadata"]
     df = pd.read_csv(tracks_csv, index_col=0, header=[0, 1])
 
-    # Filter to fma_small subset
+    # Filter to fma_small subset for balanced and manageable training
     subset = df[df[("set", "subset")] == "small"]
     genre_col = ("track", "genre_top")
     subset = subset[subset[genre_col].notna()]
@@ -107,12 +152,19 @@ def preprocess_and_save(cfg: dict, out_dir: str):
 
 
 class FMADataset(Dataset):
+    """
+    Custom PyTorch Dataset for the Free Music Archive (FMA) dataset.
+    Loads pre-processed Mel-spectrograms and their corresponding genre labels.
+    """
+
     def __init__(self, cfg: dict, split: str = "train", transform=None):
         """
+        Initialize the dataset by loading metadata and filtering samples for the split.
+
         Args:
-            cfg: loaded config dict
-            split: 'train', 'val', or 'test'
-            transform: optional torchvision-style transform
+            cfg (dict): Loaded project configuration.
+            split (str): Dataset split to load ('train', 'val', or 'test').
+            transform (callable, optional): Torchvision-style transform to apply to samples.
         """
         self.cfg = cfg
         self.transform = transform
@@ -121,6 +173,7 @@ class FMADataset(Dataset):
         tracks_csv = cfg["paths"]["metadata"]
         df = pd.read_csv(tracks_csv, index_col=0, header=[0, 1])
 
+        # Filter to fma_small subset
         subset = df[df[("set", "subset")] == "small"]
         genre_col = ("track", "genre_top")
         subset = subset[subset[genre_col].notna()]
@@ -129,7 +182,7 @@ class FMADataset(Dataset):
         self.genre_to_idx = {g: i for i, g in enumerate(genre_list)}
         self.idx_to_genre = {i: g for g, i in self.genre_to_idx.items()}
 
-        # Build samples list — only tracks with preprocessed .npy
+        # Build samples list — only tracks with preprocessed .npy files available
         samples = []
         for track_id, row in subset.iterrows():
             genre = row[genre_col]
@@ -139,7 +192,7 @@ class FMADataset(Dataset):
             if npy_path.exists():
                 samples.append((str(npy_path), self.genre_to_idx[genre]))
 
-        # Deterministic split
+        # Deterministic splitting using a fixed random seed
         rng = np.random.default_rng(cfg["training"]["seed"])
         indices = rng.permutation(len(samples))
 
@@ -155,16 +208,32 @@ class FMADataset(Dataset):
         logger.info(f"[{split}] {len(self.samples)} samples loaded.")
 
     def __len__(self):
+        """
+        Returns the total number of samples in this dataset split.
+
+        Returns:
+            int: Number of samples.
+        """
         return len(self.samples)
 
     def __getitem__(self, idx):
-        path, label = self.samples[idx]
-        mel = np.load(path)  # (n_mels, time)
+        """
+        Fetch a sample and its label.
 
-        # Normalize to [-1, 1]
+        Args:
+            idx (int): Index of the sample to retrieve.
+
+        Returns:
+            tuple: (mel_spectrogram, label_idx) where mel_spectrogram is a
+                   torch.Tensor of shape (1, n_mels, time).
+        """
+        path, label = self.samples[idx]
+        mel = np.load(path)  # Shape: (n_mels, time)
+
+        # Standard Z-score normalization to improve network stability
         mel = (mel - mel.mean()) / (mel.std() + 1e-8)
 
-        # Add channel dim → (1, n_mels, time)
+        # Add channel dimension (C, H, W) for Conv2D layers
         mel = torch.tensor(mel, dtype=torch.float32).unsqueeze(0)
 
         if self.transform:
@@ -174,6 +243,15 @@ class FMADataset(Dataset):
 
 
 def get_dataloaders(cfg: dict):
+    """
+    Create PyTorch DataLoaders for train, validation, and test splits.
+
+    Args:
+        cfg (dict): Project configuration.
+
+    Returns:
+        tuple: (train_loader, val_loader, test_loader)
+    """
     train_ds = FMADataset(cfg, split="train")
     val_ds = FMADataset(cfg, split="val")
     test_ds = FMADataset(cfg, split="test")

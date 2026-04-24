@@ -1,3 +1,9 @@
+"""
+Training script for the Genre Classification model.
+Handles the training loop, validation, SpecAugment, checkpointing,
+and early stopping. Supports resuming from existing checkpoints.
+"""
+
 import os
 import time
 import yaml
@@ -22,14 +28,34 @@ logger = logging.getLogger(__name__)
 
 
 class SpecAugment(nn.Module):
-    """Frequency and time masking on mel-spectrograms (applied during training only)."""
+    """
+    Frequency and time masking on mel-spectrograms.
+    Applied during training only to improve model generalization by making
+    it robust to missing spectral or temporal information.
+    """
 
     def __init__(self, freq_mask=27, time_mask=100):
+        """
+        Initialize SpecAugment layers.
+
+        Args:
+            freq_mask (int): Maximum frequency width to mask.
+            time_mask (int): Maximum time width to mask.
+        """
         super().__init__()
         self.freq_mask = FrequencyMasking(freq_mask_param=freq_mask)
         self.time_mask = TimeMasking(time_mask_param=time_mask)
 
     def forward(self, x):
+        """
+        Apply masking to the input tensor.
+
+        Args:
+            x (torch.Tensor): Input mel-spectrogram of shape (B, 1, F, T).
+
+        Returns:
+            torch.Tensor: Augmented mel-spectrogram.
+        """
         x = self.freq_mask(x)
         x = self.time_mask(x)
         return x
@@ -39,6 +65,16 @@ class SpecAugment(nn.Module):
 
 
 def accuracy(logits, labels):
+    """
+    Calculate top-1 accuracy.
+
+    Args:
+        logits (torch.Tensor): Model output logits.
+        labels (torch.Tensor): Ground truth labels.
+
+    Returns:
+        float: Accuracy value in range [0, 1].
+    """
     preds = logits.argmax(dim=1)
     return (preds == labels).float().mean().item()
 
@@ -47,19 +83,35 @@ def accuracy(logits, labels):
 
 
 def train_epoch(model, loader, optimizer, criterion, augment, device):
+    """
+    Run one training epoch.
+
+    Args:
+        model (nn.Module): The neural network model.
+        loader (DataLoader): Training data loader.
+        optimizer (torch.optim.Optimizer): Optimization algorithm.
+        criterion (nn.Module): Loss function.
+        augment (nn.Module): Augmentation module.
+        device (torch.device): Device to run computation on (e.g., 'cuda').
+
+    Returns:
+        tuple: (average_loss, average_accuracy) for the epoch.
+    """
     model.train()
     total_loss, total_acc = 0.0, 0.0
     valid_batches = 0
 
     for x, y in tqdm(loader, desc="Training", leave=False):
         x, y = x.to(device), y.to(device)
-        x = augment(x)
+        x = augment(x)  # Apply SpecAugment on the fly
 
         optimizer.zero_grad()
         try:
             logits = model(x)
             loss = criterion(logits, y)
             loss.backward()
+
+            # Gradient clipping to prevent exploding gradients
             nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
@@ -67,6 +119,7 @@ def train_epoch(model, loader, optimizer, criterion, augment, device):
             total_acc += accuracy(logits, y)
             valid_batches += 1
         except RuntimeError as e:
+            # Handle sporadic OOM by skipping batch and clearing cache
             if "out of memory" in str(e):
                 logger.warning("CUDA Out of Memory! Clearing cache and skipping batch.")
                 torch.cuda.empty_cache()
@@ -81,6 +134,18 @@ def train_epoch(model, loader, optimizer, criterion, augment, device):
 
 @torch.no_grad()
 def eval_epoch(model, loader, criterion, device):
+    """
+    Run one evaluation epoch.
+
+    Args:
+        model (nn.Module): The neural network model.
+        loader (DataLoader): Validation or test data loader.
+        criterion (nn.Module): Loss function.
+        device (torch.device): Device to run computation on.
+
+    Returns:
+        tuple: (average_loss, average_accuracy) for the data in loader.
+    """
     model.eval()
     total_loss, total_acc = 0.0, 0.0
 
@@ -99,6 +164,13 @@ def eval_epoch(model, loader, criterion, device):
 
 
 def save_checkpoint(state, path):
+    """
+    Save the model state and optimizer state to a file.
+
+    Args:
+        state (dict): Dictionary containing states and metadata.
+        path (str): Destination path to save the checkpoint file.
+    """
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     torch.save(state, path)
 
@@ -107,9 +179,20 @@ def save_checkpoint(state, path):
 
 
 def train(config_path="config.yaml", colab=False):
+    """
+    Main training pipeline.
+    Initializes model, data, and optimizer, then runs the epoch loop.
+
+    Args:
+        config_path (str): Path to the YAML configuration file.
+        colab (bool): Whether running in Google Colab environment (adjusts paths).
+
+    Returns:
+        dict: Training history containing loss and accuracy per epoch.
+    """
     cfg = load_config(config_path)
 
-    # Colab: remap paths to Drive
+    # Colab: remap paths to Google Drive for persistent storage
     if colab:
         drive_root = cfg["colab"]["drive_root"]
         cfg["paths"][
@@ -121,20 +204,21 @@ def train(config_path="config.yaml", colab=False):
         cfg["paths"]["checkpoints"] = f"{cfg['colab']['drive_models']}/checkpoints"
         cfg["paths"]["best_model"] = f"{cfg['colab']['drive_models']}/best_model.pth"
 
+    # Enforce reproducibility
     torch.manual_seed(cfg["training"]["seed"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}")
 
-    # Data
+    # Initialize data loaders
     train_loader, val_loader, _ = get_dataloaders(cfg)
 
-    # Model
+    # Build model architecture
     model = build_model(cfg, device)
 
-    # Loss — label smoothing for overconfidence regularization
+    # Loss — use label smoothing to improve generalization and handle noisy data
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
-    # Optimizer + Scheduler
+    # Robust optimizer and learning rate schedule
     optimizer = AdamW(
         model.parameters(),
         lr=cfg["training"]["learning_rate"],
@@ -142,18 +226,17 @@ def train(config_path="config.yaml", colab=False):
     )
     scheduler = CosineAnnealingLR(optimizer, T_max=cfg["training"]["epochs"])
 
-    # SpecAugment
+    # Augmentation applied on the GPU during training
     augment = SpecAugment().to(device)
 
-    # Early stopping config
+    # Early stopping and performance tracking setup
     patience = 7
     epochs_no_improve = 0
     best_val_loss = float("inf")
-
-    # Training loop
     best_val_acc = 0.0
     history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
 
+    # Resume from latest checkpoint if available
     start_epoch = 1
     checkpoint_dir = Path(cfg["paths"]["checkpoints"])
     if checkpoint_dir.exists():
@@ -167,6 +250,7 @@ def train(config_path="config.yaml", colab=False):
                 optimizer.load_state_dict(ckpt["optimizer_state"])
             start_epoch = ckpt["epoch"] + 1
 
+    # Main Training Loop
     for epoch in tqdm(range(start_epoch, cfg["training"]["epochs"] + 1), desc="Epochs"):
         t0 = time.time()
 
@@ -176,6 +260,7 @@ def train(config_path="config.yaml", colab=False):
         val_loss, val_acc = eval_epoch(model, val_loader, criterion, device)
         scheduler.step()
 
+        # Update per-epoch history
         history["train_loss"].append(train_loss)
         history["train_acc"].append(train_acc)
         history["val_loss"].append(val_loss)
@@ -189,11 +274,10 @@ def train(config_path="config.yaml", colab=False):
             f"LR: {scheduler.get_last_lr()[0]:.6f} | {elapsed:.1f}s"
         )
 
-        # Update best_val_acc for logging at the end
         if val_acc > best_val_acc:
             best_val_acc = val_acc
 
-        # Early stopping and Save best model based on val_loss
+        # Early stopping and Persistence of the best model weights
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             epochs_no_improve = 0
@@ -218,7 +302,7 @@ def train(config_path="config.yaml", colab=False):
                 )
                 break
 
-        # Periodic checkpoint every 10 epochs (Colab disconnect safety)
+        # Periodic checkpointing for crash recovery
         if epoch % 10 == 0:
             ckpt_path = f"{cfg['paths']['checkpoints']}/epoch_{epoch:03d}.pth"
             save_checkpoint(
@@ -235,8 +319,9 @@ def train(config_path="config.yaml", colab=False):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Train the Genre Recognition CNN.")
     parser.add_argument("--colab", action="store_true", help="Use Colab/Drive paths")
-    parser.add_argument("--config", default="config.yaml")
+    parser.add_argument("--config", default="config.yaml", help="Path to config file")
     args = parser.parse_args()
+
     train(config_path=args.config, colab=args.colab)
