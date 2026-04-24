@@ -1,11 +1,11 @@
 fastapi
-uvicorn[standard]
-python-multipart
-librosa
+uvicorn
 torch
-torchvision
+torchaudio
+librosa
 numpy
 pyyaml
+python-multipart
 pydantic
 pydantic-settings
-fastapi-cors
+uvicorn[standard]
