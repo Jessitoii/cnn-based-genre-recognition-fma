@@ -1,4 +1,4 @@
-    **CNN-Based-Genre-Recognition-FMA**
+**CNN-Based-Genre-Recognition-FMA**
 
 This repository contains a deep learning-based system designed for the automated organization of large-scale digital music libraries. By leveraging the **Free Music Archive (FMA)** dataset, the project provides a robust solution for identifying musical genres through computer vision techniques applied to audio signals.
 

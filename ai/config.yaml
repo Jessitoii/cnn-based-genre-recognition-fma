@@ -1,0 +1,43 @@
+data:
+  dataset: fma_small
+  sample_rate: 22050
+  duration: 30          # seconds per clip
+  n_mels: 128
+  n_fft: 2048
+  hop_length: 512
+  genres:
+    - Electronic
+    - Experimental
+    - Folk
+    - Hip-Hop
+    - Instrumental
+    - International
+    - Pop
+    - Rock
+
+model:
+  in_channels: 1
+  num_classes: 8
+  dropout: 0.3
+
+training:
+  epochs: 50
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+  num_workers: 2
+
+paths:
+  data_raw: data/raw/fma_small
+  data_processed: data/processed/spectrograms
+  metadata: data/raw/fma_metadata/tracks.csv
+  checkpoints: models/checkpoints
+  best_model: models/best_model.pth
+
+colab:
+  drive_root: /content/drive/MyDrive/Okul/CNN-Based-Genre-Recognition-FMA
+  drive_data: /content/drive/MyDrive/Okul/CNN-Based-Genre-Recognition-FMA/data
+  drive_models: /content/drive/MyDrive/Okul/CNN-Based-Genre-Recognition-FMA/models
