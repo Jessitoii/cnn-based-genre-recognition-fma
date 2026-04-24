@@ -1,24 +1,62 @@
-**CNN-Based-Genre-Recognition-FMA**
+# CNN-Based Genre Recognition — Project Context
 
-This repository contains a deep learning-based system designed for the automated organization of large-scale digital music libraries. By leveraging the **Free Music Archive (FMA)** dataset, the project provides a robust solution for identifying musical genres through computer vision techniques applied to audio signals.
+## Project Overview
+This repository contains an academic project for an Applied Neural Networks course. The primary goal is to classify music genres using Convolutional Neural Networks (CNNs) trained on Mel-Spectrogram representations of audio tracks from the Free Music Archive (FMA) dataset.
 
-**Technical Overview:**
+## Architecture
+```text
++-------------------+      +--------------------+      +-------------------+
+|                   |      |                    |      |                   |
+|   Web Frontend    | <--> |   FastAPI Backend  | <--> |   CNN PyTorch     |
+|   (Next.js)       |      |   (REST API)       |      |   Model           |
+|                   |      |                    |      |                   |
++-------------------+      +--------------------+      +-------------------+
+        |                            |                           |
+        v                            v                           |
+  User Interface             Backend processing              Trained on Colab T4 Cloud GPU
+  for Uploading              Feature Extraction              Using fma_small dataset
+  Audio Files                (Mel-Spectrogram)               (Saved in Google Drive)
+```
 
-*   **Feature Extraction**: Utilizing the **Librosa** library to transform 1D audio signals into 2D **Mel-Spectrograms**, capturing the frequency-time intensity as "heat maps" that mimic human auditory perception.
-    
-*   **Architecture**: A **Convolutional Neural Network (CNN)** architecture is employed to analyze the visual patterns within the spectrograms, such as rhythmic structures, tonal characteristics, and timbre.
-    
-*   **Dataset**: Focuses on the **FMA dataset** due to its high-quality audio samples and balanced genre diversity, offering a more realistic challenge compared to legacy datasets.
-    
-*   **Tech Stack**: Built with **Python**, **PyTorch/Keras**, **NumPy**, and **Pandas** for efficient matrix operations and model training.
-    
+## Tech Stack
+- **AI / ML**: Python, PyTorch, Torchaudio, Librosa, NumPy, Matplotlib
+- **Backend API**: Python, FastAPI, Uvicorn, Pydantic
+- **Frontend Web**: Next.js, React, TypeScript, Tailwind CSS
 
-**Project Pipeline:**
+## Setup Instructions
 
-1.  **Audio Preprocessing**: Normalization and fixed-length windowing of audio files.
-    
-2.  **Spectrogram Generation**: Conversion of signal data into numerical 2D matrices.
-    
-3.  **Model Training**: CNN pattern recognition for genre classification.
-    
-4.  **Evaluation**: Performance assessment using Accuracy and Loss metrics on unseen data.
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+
+### 1. Model Training
+Please refer to [ai/README.md](ai/README.md) for details on training the model using Google Colab.
+
+### 2. Backend Setup
+Navigate to the backend directory, install the dependencies, and start the development server:
+
+```bash
+cd backend
+pip install -r requirements.txt
+python main.py
+```
+*Note: The backend runs on `localhost:8000`. If you do not have a trained model, the backend relies on a mock mode dynamically responding with fake predictions.*
+
+### 3. Frontend Setup
+Navigate to the web directory, install the packages, and run the Next.js frontend:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+*Note: The frontend runs on `localhost:3000`.*
+
+## Results
+
+**Placeholder:** 
+| Metric | Value |
+|--------|-------|
+| Accuracy | TBA |
+| Loss | TBA |
+| F1 Score | TBA |
