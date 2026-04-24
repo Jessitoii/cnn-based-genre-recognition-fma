@@ -6,7 +6,8 @@ import ResultChart from '@/components/ResultChart';
 
 interface Prediction {
   genre: string;
-  confidences: Record<string, number>;
+  confidence: number;
+  all_scores: Record<string, number>;
 }
 
 export default function Home() {
@@ -119,7 +120,8 @@ export default function Home() {
         {result && (
           <ResultChart
             predictedGenre={result.genre}
-            confidences={result.confidences}
+            confidence={result.confidence}
+            allScores={result.all_scores}
           />
         )}
 

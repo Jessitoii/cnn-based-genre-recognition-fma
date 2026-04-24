@@ -3,22 +3,26 @@
 import React from 'react';
 
 interface ResultChartProps {
-    confidences: Record<string, number>;
+    allScores: Record<string, number>;
     predictedGenre: string;
+    confidence: number;
 }
 
-export default function ResultChart({ confidences, predictedGenre }: ResultChartProps) {
+export default function ResultChart({ allScores, predictedGenre, confidence }: ResultChartProps) {
     // Sort genres by confidence descending
-    const sortedGenres = Object.entries(confidences).sort(([, a], [, b]) => b - a);
+    const sortedGenres = Object.entries(allScores).sort(([, a], [, b]) => b - a);
 
     return (
         <div className="w-full mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
                 <div className="text-center mb-8">
                     <p className="text-sm uppercase tracking-widest text-slate-400 font-semibold mb-2">Predicted Genre</p>
-                    <h2 className="text-5xl font-black text-indigo-600 drop-shadow-sm">
+                    <h2 className="text-5xl font-black text-indigo-600 drop-shadow-sm mb-2">
                         {predictedGenre}
                     </h2>
+                    <p className="text-slate-500 font-medium">
+                        Confidence: <span className="text-indigo-600 font-bold">{(confidence * 100).toFixed(1)}%</span>
+                    </p>
                 </div>
 
                 <div className="space-y-4">
