@@ -18,6 +18,23 @@ The core thesis: **a spectrogram is an image. If a CNN can distinguish a cat fro
 
 ---
 
+### Usage (Hugging Face)
+
+```python
+from huggingface_hub import hf_hub_download
+import torch
+
+model_path = hf_hub_download(
+    repo_id="jessitoi/genre-cnn-fma-small",
+    filename="model.pth"
+)
+
+model = torch.load(model_path)
+model.eval()
+```
+
+---
+
 ## Architecture
 
 ### Audio → Image Pipeline
@@ -173,6 +190,11 @@ FMA was chosen over GTZAN for its scale, label quality, and real-world genre div
 | Instrumental | 0.69 | 0.47 | 0.56 |
 | Experimental | 0.50 | 0.52 | 0.51 |
 | Pop | 0.44 | 0.22 | **0.29** |
+
+## Model Card
+
+See full model details, limitations, and intended use on Hugging Face:
+https://huggingface.co/jessitoi/genre-cnn-fma-small
 
 ### Key Observations
 
