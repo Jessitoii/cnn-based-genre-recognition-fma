@@ -201,8 +201,8 @@ def train(config_path="config.yaml", colab=False):
         cfg["paths"][
             "metadata"
         ] = f"{cfg['colab']['drive_data']}/raw/fma_metadata/tracks.csv"
-        cfg["paths"]["checkpoints"] = f"{cfg['colab']['drive_models']}/checkpoints"
-        cfg["paths"]["best_model"] = f"{cfg['colab']['drive_models']}/best_model.pth"
+        cfg["paths"]["checkpoints"] = f"{cfg['colab']['drive_models']}/checkpoints_v2"
+        cfg["paths"]["best_model"] = f"{cfg['colab']['drive_models']}/best_model_v2.pth"
 
     # Enforce reproducibility
     torch.manual_seed(cfg["training"]["seed"])
