@@ -40,7 +40,7 @@ def evaluate(config_path="config.yaml", colab=False):
         cfg["paths"][
             "metadata"
         ] = f"{cfg['colab']['drive_data']}/raw/fma_metadata/tracks.csv"
-        cfg["paths"]["best_model"] = f"{cfg['colab']['drive_models']}/best_model.pth"
+        cfg["paths"]["best_model"] = f"{cfg['colab']['drive_models']}/best_model_v2.pth"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

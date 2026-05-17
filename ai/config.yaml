@@ -35,7 +35,7 @@ paths:
   data_processed: data/processed/spectrograms
   metadata: data/raw/fma_metadata/tracks.csv
   checkpoints: models/checkpoints
-  best_model: models/best_model.pth
+  best_model: models/best_model_v2.pth
 
 colab:
   drive_root: /content/drive/MyDrive/Okul/CNN-Based-Genre-Recognition-FMA

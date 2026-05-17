@@ -1,0 +1,20 @@
+# Deep Learning & Audio Processing
+torch
+torchaudio
+librosa
+numpy
+pandas
+
+# Machine Learning & Visualization
+scikit-learn
+matplotlib
+seaborn
+tqdm
+pyyaml
+
+# Backend API
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings

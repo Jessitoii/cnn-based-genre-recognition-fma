@@ -303,6 +303,9 @@ npm run dev
 - [`docs/training.md`](docs/training.md) — Training pipeline, optimization strategy
 - [`docs/results.md`](docs/results.md) — Full evaluation results and analysis
 - [`docs/api.md`](docs/api.md) — API reference with curl examples
+- [`docs/v2_architecture.md`](docs/v2_architecture.md) — **[NEW]** V2 System architecture & Google Drive local mount strategy
+- [`docs/v2_model.md`](docs/v2_model.md) — **[NEW]** GenreCNN V2 layers (SE Attention & Residual blocks)
+- [`docs/v2_results.md`](docs/v2_results.md) — **[NEW]** GenreCNN V2 evaluation results, class-wise F1 metrics, and comparison
 
 ---
 
